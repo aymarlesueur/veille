@@ -1,0 +1,3 @@
+#!/bin/zsh
+# Génère le digest du jour et l'ouvre dans le navigateur
+cd "$(dirname "$0")" && .venv/bin/python veille.py "$@"

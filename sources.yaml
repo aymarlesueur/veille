@@ -1,0 +1,73 @@
+# Tes sources. Modifie librement les notes : ce sont TES critères.
+#
+# fiabilite   : 1 à 10. Notes de départ proposées par Claude, à ajuster.
+# orientation : gauche | centre-gauche | centre | centre-droit | droite
+#               (sert à mesurer la diversité des sources qui confirment un fait)
+# type        : media | agence | officiel | specialise
+# rubrique    : france | international | eglise | eco | tech
+#               (rubrique par défaut des articles de ce flux)
+# media       : (optionnel) titre de presse commun à plusieurs flux, pour ne pas compter
+#               Le Monde International + Le Monde Économie comme deux sources indépendantes
+# langue      : fr | en  (deux articles de langues différentes ne sont pas encore regroupés)
+
+sources:
+  # ── Actualité française ─────────────────────────────────────────
+  - {nom: Le Monde,        rss: "https://www.lemonde.fr/rss/une.xml",                                    fiabilite: 8, orientation: centre-gauche, type: media, rubrique: france, langue: fr}
+  - {nom: Le Figaro,       rss: "https://www.lefigaro.fr/rss/figaro_actualites.xml",                     fiabilite: 7, orientation: droite,        type: media, rubrique: france, langue: fr}
+  - {nom: Franceinfo,      rss: "https://www.francetvinfo.fr/titres.rss",                                fiabilite: 8, orientation: centre,        type: media, rubrique: france, langue: fr}
+  - {nom: Libération,      rss: "https://www.liberation.fr/arc/outboundfeeds/rss-all/?outputType=xml",   fiabilite: 7, orientation: gauche,        type: media, rubrique: france, langue: fr}
+  - {nom: La Croix,        rss: "https://www.la-croix.com/RSS",                                          fiabilite: 8, orientation: centre,        type: media, rubrique: france, langue: fr}
+  - {nom: Ouest-France,    rss: "https://www.ouest-france.fr/rss/une",                                   fiabilite: 8, orientation: centre,        type: media, rubrique: france, langue: fr}
+  - {nom: L'Opinion,       rss: "https://www.lopinion.fr/index.rss",                                     fiabilite: 7, orientation: centre-droit,  type: media, rubrique: france, langue: fr}
+  - {nom: L'Express,       rss: "https://www.lexpress.fr/arc/outboundfeeds/rss/alaune.xml",              fiabilite: 7, orientation: centre,        type: media, rubrique: france, langue: fr}
+  - {nom: 20 Minutes,      rss: "https://www.20minutes.fr/feeds/rss-une.xml",                            fiabilite: 6, orientation: centre,        type: media, rubrique: france, langue: fr}
+
+  # ── International ───────────────────────────────────────────────
+  - {nom: Le Monde International, media: Le Monde,  rss: "https://www.lemonde.fr/international/rss_full.xml",       fiabilite: 8, orientation: centre-gauche, type: media, rubrique: international, langue: fr}
+  - {nom: Le Figaro International, media: Le Figaro, rss: "https://www.lefigaro.fr/rss/figaro_international.xml",    fiabilite: 7, orientation: droite,        type: media, rubrique: international, langue: fr}
+  - {nom: France 24,       rss: "https://www.france24.com/fr/rss",                 fiabilite: 7, orientation: centre,        type: media, rubrique: international, langue: fr}
+  - {nom: RFI,             rss: "https://www.rfi.fr/fr/rss",                       fiabilite: 7, orientation: centre,        type: media, rubrique: international, langue: fr}
+  - {nom: Courrier international, rss: "https://www.courrierinternational.com/feed/all/rss.xml", fiabilite: 7, orientation: centre-gauche, type: media, rubrique: international, langue: fr}
+  - {nom: BBC,             rss: "https://feeds.bbci.co.uk/news/world/rss.xml",     fiabilite: 8, orientation: centre,        type: media, rubrique: international, langue: en}
+  - {nom: The Guardian,    rss: "https://www.theguardian.com/world/rss",           fiabilite: 7, orientation: centre-gauche, type: media, rubrique: international, langue: en}
+  - {nom: Deutsche Welle,  rss: "https://rss.dw.com/rdf/rss-en-world",             fiabilite: 8, orientation: centre,        type: media, rubrique: international, langue: en}
+  - {nom: NPR,             rss: "https://feeds.npr.org/1004/rss.xml",              fiabilite: 7, orientation: centre-gauche, type: media, rubrique: international, langue: en}
+  - {nom: Al Jazeera,      rss: "https://www.aljazeera.com/xml/rss/all.xml",       fiabilite: 6, orientation: centre,        type: media, rubrique: international, langue: en}
+
+  # ── Église ──────────────────────────────────────────────────────
+  # Vatican News = média officiel du Saint-Siège : fiable sur ce que dit le Vatican, mais pas une source indépendante.
+  - {nom: Vatican News,    rss: "https://www.vaticannews.va/fr.rss.xml",           fiabilite: 8, orientation: centre,        type: officiel,   rubrique: eglise, langue: fr}
+  - {nom: La Croix Religion, media: La Croix, rss: "https://www.la-croix.com/feeds/rss/religion.xml", fiabilite: 8, orientation: centre,      type: specialise, rubrique: eglise, langue: fr}
+  - {nom: Cath.ch,         rss: "https://www.cath.ch/feed/",                       fiabilite: 8, orientation: centre,        type: agence,     rubrique: eglise, langue: fr}
+  - {nom: Aleteia,         rss: "https://fr.aleteia.org/feed/",                    fiabilite: 6, orientation: centre-droit,  type: specialise, rubrique: eglise, langue: fr}
+  - {nom: The Pillar,      rss: "https://www.pillarcatholic.com/feed",             fiabilite: 8, orientation: centre,        type: specialise, rubrique: eglise, langue: en}
+  - {nom: Catholic News Agency, rss: "https://www.catholicnewsagency.com/rss/news", fiabilite: 7, orientation: centre-droit,  type: agence,     rubrique: eglise, langue: en}
+
+  # ── Économie / finance ──────────────────────────────────────────
+  - {nom: Le Monde Économie, media: Le Monde,  rss: "https://www.lemonde.fr/economie/rss_full.xml",  fiabilite: 8, orientation: centre-gauche, type: media, rubrique: eco, langue: fr}
+  - {nom: Le Figaro Économie, media: Le Figaro, rss: "https://www.lefigaro.fr/rss/figaro_economie.xml", fiabilite: 7, orientation: droite,      type: media, rubrique: eco, langue: fr}
+  - {nom: La Tribune,      rss: "https://www.latribune.fr/rss/rubriques/actualite.html", fiabilite: 7, orientation: centre-droit, type: media, rubrique: eco, langue: fr}
+  - {nom: BFM Éco, media: BFM,         rss: "https://www.bfmtv.com/rss/economie/",             fiabilite: 6, orientation: centre-droit,  type: media, rubrique: eco, langue: fr}
+  - {nom: Financial Times, rss: "https://www.ft.com/rss/home",                     fiabilite: 9, orientation: centre,        type: media, rubrique: eco, langue: en}
+  - {nom: CNBC,            rss: "https://www.cnbc.com/id/100003114/device/rss/rss.html", fiabilite: 7, orientation: centre,  type: media, rubrique: eco, langue: en}
+
+  # ── Tech / IA / startups ────────────────────────────────────────
+  - {nom: Le Monde Pixels, media: Le Monde, rss: "https://www.lemonde.fr/pixels/rss_full.xml",      fiabilite: 8, orientation: centre-gauche, type: media,      rubrique: tech, langue: fr}
+  - {nom: Numerama,        rss: "https://www.numerama.com/feed/",                  fiabilite: 7, orientation: centre,        type: specialise, rubrique: tech, langue: fr}
+  - {nom: 01net,           rss: "https://www.01net.com/feed/",                     fiabilite: 6, orientation: centre,        type: specialise, rubrique: tech, langue: fr}
+  - {nom: BFM Tech, media: BFM,        rss: "https://www.bfmtv.com/rss/tech/",                 fiabilite: 6, orientation: centre,        type: specialise, rubrique: tech, langue: fr}
+  - {nom: Maddyness,       rss: "https://www.maddyness.com/feed/",                 fiabilite: 6, orientation: centre,        type: specialise, rubrique: tech, langue: fr}
+  - {nom: FrenchWeb,       rss: "https://www.frenchweb.fr/feed",                   fiabilite: 6, orientation: centre,        type: specialise, rubrique: tech, langue: fr}
+  - {nom: Ars Technica,    rss: "https://feeds.arstechnica.com/arstechnica/index", fiabilite: 8, orientation: centre,        type: specialise, rubrique: tech, langue: en}
+  - {nom: MIT Technology Review, rss: "https://www.technologyreview.com/feed/",     fiabilite: 8, orientation: centre,        type: specialise, rubrique: tech, langue: en}
+  - {nom: TechCrunch,      rss: "https://techcrunch.com/feed/",                    fiabilite: 7, orientation: centre,        type: specialise, rubrique: tech, langue: en}
+  - {nom: The Verge,       rss: "https://www.theverge.com/rss/index.xml",          fiabilite: 7, orientation: centre-gauche, type: specialise, rubrique: tech, langue: en}
+
+# Réglages du digest
+reglages:
+  fenetre_heures: 30          # on ne garde que les articles des dernières X heures
+  seuil_similarite: 0.31      # 0 à 1 : plus haut = regroupements plus stricts
+  max_sujets_par_rubrique: 6  # sujets recoupés affichés par rubrique
+  max_non_recoupes: 3         # sujets d'une seule source affichés par rubrique
+  fiabilite_min_non_recoupe: 8  # une info non recoupée n'apparaît que si sa source a au moins cette note
+  mots_exclus: [horoscope, people, "jeu concours", "bon plan", "code promo", "black friday", "prime video", netflix]
