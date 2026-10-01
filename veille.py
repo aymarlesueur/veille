@@ -235,138 +235,202 @@ def evaluer(arts):
 
 
 def selectionner(evenements, reglages):
+    """Renvoie le sujet à la une (le plus recoupé) puis, par rubrique,
+    les sujets recoupés et quelques sujets non recoupés de sources fiables."""
+    recoupes = sorted((e for e in evenements if e["independantes"] >= 2), key=lambda e: -e["score"])
+    une = recoupes[0] if recoupes else None
     par_rubrique = {}
     for cle, _ in RUBRIQUES:
-        evs = [e for e in evenements if e["rubrique"] == cle]
-        recoupes = sorted((e for e in evs if e["independantes"] >= 2), key=lambda e: -e["score"])
+        evs = [e for e in evenements if e["rubrique"] == cle and e is not une]
+        rec = [e for e in recoupes if e["rubrique"] == cle and e is not une]
         seuls = sorted(
             (e for e in evs if e["independantes"] < 2 and e["fiabilite"] >= reglages["fiabilite_min_non_recoupe"]),
             key=lambda e: (-e["fiabilite"], -e["ts"]),
         )
         par_rubrique[cle] = (
-            recoupes[: reglages["max_sujets_par_rubrique"]],
+            rec[: reglages["max_sujets_par_rubrique"]],
             seuls[: reglages["max_non_recoupes"]],
         )
-    return par_rubrique
+    return une, par_rubrique
 
 
 # ── Rendu HTML ──────────────────────────────────────────────────────
+
+ONGLETS = {"france": "France", "international": "Monde", "eglise": "Église", "eco": "Éco", "tech": "Tech"}
+
 
 def esc(s):
     return html.escape(s or "")
 
 
-def couper(texte, n=320):
-    return texte if len(texte) <= n else texte[:n].rsplit(" ", 1)[0] + "…"
+def virgule(x):
+    return f"{x:.1f}".replace(".", ",")
 
 
-def carte(ev, non_recoupe=False):
-    pct = int(ev["fiabilite"] * 10)
-    camps = "".join(
-        f'<span class="camp camp-{c}">{lbl}</span>'
-        for c, lbl in (("G", "gauche"), ("C", "centre"), ("D", "droite")) if c in ev["camps"]
-    )
-    badges = ""
-    if ev["agences"]:
-        badges += f'<span class="badge">dépêche {esc(", ".join(ev["agences"]))}</span>'
-    if ev["officiel"]:
-        badges += '<span class="badge">source officielle</span>'
+def recoupement(ev, non_recoupe):
+    """La rangée de pastilles : une par média, colorée selon son camp."""
     if non_recoupe:
-        badges += '<span class="badge badge-warn">non recoupé</span>'
-    liens = " · ".join(
-        f'<a href="{esc(a["lien"])}" target="_blank" rel="noopener">{esc(a["media"])}'
-        f'<span class="note">{a["source"]["fiabilite"]}</span></a>'
+        m = ev["medias"][0]
+        return (f'<div class="recoup"><span class="pastilles"><i class="p seul"></i></span>'
+                f'<span>Pas encore recoupé, {esc(m["media"])} ({m["source"]["fiabilite"]}/10)</span></div>')
+    pastilles = "".join(
+        f'<i class="p {CAMP.get(a["source"]["orientation"], "C")}" title="{esc(a["media"])}, {a["source"]["fiabilite"]}/10"></i>'
         for a in ev["medias"]
     )
-    nb = ev["independantes"]
-    return f"""
-<article class="ev">
-  <h3>{esc(ev["titre"])}</h3>
-  <div class="meta">
-    <span class="jauge" title="Fiabilité moyenne des sources : {ev["fiabilite"]:.1f}/10"><span style="width:{pct}%"></span></span>
-    <span>{ev["fiabilite"]:.1f}/10</span>
-    <span>· {nb} source{"s" if nb > 1 else ""} indépendante{"s" if nb > 1 else ""}</span>
-    {camps}{badges}
-  </div>
-  {f'<p>{esc(couper(ev["resume"]))}</p>' if ev["resume"] else ""}
-  <div class="sources">{liens}</div>
+    n, nm = ev["independantes"], len(ev["medias"])
+    texte = f"{n} sources" if n == nm else f"{nm} médias, {n} sources indépendantes"
+    if ev["agences"]:
+        texte += f" (dépêche {', '.join(ev['agences'])})"
+    texte += f", fiabilité {virgule(ev['fiabilite'])}"
+    return f'<div class="recoup"><span class="pastilles">{pastilles}</span><span>{esc(texte)}</span></div>'
+
+
+def sujet(ev, non_recoupe=False, une=False):
+    principal = ev["medias"][0]
+    sources = "".join(
+        f'<li><a href="{esc(a["lien"])}" target="_blank" rel="noopener">'
+        f'<b class="{CAMP.get(a["source"]["orientation"], "C")}">{esc(a["media"])}</b> {esc(a["titre"])}</a></li>'
+        for a in ev["medias"]
+    )
+    details = "" if non_recoupe else (
+        f'<details><summary>Lire les {len(ev["medias"])} articles</summary><ul>{sources}</ul></details>'
+    )
+    resume = f'<p class="resume">{esc(ev["resume"])}</p>' if ev["resume"] else ""
+    titre = f'<a href="{esc(principal["lien"])}" target="_blank" rel="noopener">{esc(ev["titre"])}</a>'
+    return f"""<article class="sujet{' une' if une else ''}">
+  {recoupement(ev, non_recoupe)}
+  <h3>{titre}</h3>
+  {resume}
+  {details}
 </article>"""
 
 
-def rendre(par_rubrique, nb_articles, nb_sources, erreurs):
+def rendre(une, par_rubrique, nb_articles, nb_sources, erreurs):
     jours = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"]
     mois = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août",
             "septembre", "octobre", "novembre", "décembre"]
     now = datetime.now()
-    date = f"{jours[now.weekday()].capitalize()} {now.day}{'er' if now.day == 1 else ''} {mois[now.month - 1]} {now.year}"
-    total = sum(len(r) + len(s) for r, s in par_rubrique.values())
+    jour = f"{jours[now.weekday()].capitalize()} {now.day}{'er' if now.day == 1 else ''} {mois[now.month - 1]}"
+    total = sum(len(r) + len(s) for r, s in par_rubrique.values()) + (1 if une else 0)
 
-    sections = ""
+    onglets, sections = "", ""
     for cle, nom in RUBRIQUES:
         recoupes, seuls = par_rubrique[cle]
         if not recoupes and not seuls:
             continue
-        sections += f'<section><h2>{nom}</h2>'
-        sections += "".join(carte(e) for e in recoupes)
-        if seuls:
-            sections += '<h4>Une seule source, mais fiable</h4>'
-            sections += "".join(carte(e, non_recoupe=True) for e in seuls)
+        onglets += f'<a href="#{cle}">{ONGLETS[cle]}</a>'
+        sections += f'<section id="{cle}"><h2>{nom}</h2>'
+        sections += "".join(sujet(e) for e in recoupes)
+        sections += "".join(sujet(e, non_recoupe=True) for e in seuls)
         sections += "</section>"
+
+    bloc_une = ""
+    if une:
+        bloc_une = f'<p class="intro-une">Le sujet le plus recoupé ce matin</p>{sujet(une, une=True)}'
 
     err = ""
     if erreurs:
-        err = "<p>Sources indisponibles aujourd'hui : " + ", ".join(esc(n) for n, _ in erreurs) + "</p>"
+        err = f"<p>Indisponibles aujourd'hui : {esc(', '.join(n for n, _ in erreurs))}.</p>"
 
     return f"""<!doctype html>
 <html lang="fr"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Veille">
-<meta name="theme-color" content="#faf8f4" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#16150f" media="(prefers-color-scheme: dark)">
-<title>Veille du {now:%d/%m/%Y}</title>
+<meta name="theme-color" content="#eef1f5" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0e1524" media="(prefers-color-scheme: dark)">
+<title>Veille · {now:%d/%m}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&display=swap" rel="stylesheet">
 <style>
-:root {{ --bg:#faf8f4; --fg:#1d1b18; --muted:#6b665e; --line:#e4dfd5; --card:#fff;
-  --accent:#2f5d50; --warn:#a0522d; --G:#b4413a; --C:#6b665e; --D:#2b5c9e; }}
-@media (prefers-color-scheme: dark) {{ :root {{ --bg:#16150f; --fg:#ece8df; --muted:#9a948a;
-  --line:#2c2a24; --card:#1f1d18; --accent:#7fb8a4; --warn:#e09a6b; --G:#e0837c; --C:#9a948a; --D:#82aee8; }} }}
+:root {{
+  --fond:#eef1f5; --encre:#15213b; --doux:#5d6a7e; --trait:#d5dbe4; --survol:#e3e8ef;
+  --G:#d1495b; --C:#8b95a7; --D:#2f6fc0; --seul:#b7791f;
+}}
+@media (prefers-color-scheme: dark) {{ :root {{
+  --fond:#0e1524; --encre:#e6eaf1; --doux:#8e99ab; --trait:#243049; --survol:#172238;
+  --G:#f07b8b; --C:#9ba6b9; --D:#70a4ea; --seul:#e0a94f;
+}} }}
 * {{ box-sizing:border-box }}
-body {{ margin:0; background:var(--bg); color:var(--fg);
-  font:16px/1.55 Charter, "Iowan Old Style", Georgia, serif; }}
-main {{ max-width:720px; margin:0 auto; padding:32px 16px 64px }}
-header h1 {{ font-size:28px; margin:0 }}
-header p {{ color:var(--muted); margin:4px 0 0; font-family:-apple-system, system-ui, sans-serif; font-size:14px }}
-h2 {{ font-size:13px; text-transform:uppercase; letter-spacing:.12em; color:var(--accent);
-  border-bottom:1px solid var(--line); padding-bottom:6px; margin:40px 0 8px;
-  font-family:-apple-system, system-ui, sans-serif }}
-h4 {{ font:600 12px -apple-system, system-ui, sans-serif; color:var(--muted); margin:24px 0 4px }}
-.ev {{ padding:16px 0; border-bottom:1px solid var(--line) }}
-.ev h3 {{ font-size:19px; line-height:1.3; margin:0 0 6px }}
-.ev p {{ margin:8px 0; }}
-.meta, .sources {{ font:13px -apple-system, system-ui, sans-serif; color:var(--muted);
-  display:flex; flex-wrap:wrap; gap:6px; align-items:center }}
-.jauge {{ width:70px; height:6px; background:var(--line); border-radius:3px; overflow:hidden }}
-.jauge span {{ display:block; height:100%; background:var(--accent) }}
-.camp {{ padding:1px 7px; border-radius:9px; border:1px solid currentColor; font-size:11px }}
-.camp-G {{ color:var(--G) }} .camp-C {{ color:var(--C) }} .camp-D {{ color:var(--D) }}
-.badge {{ padding:1px 7px; border-radius:9px; background:var(--line); font-size:11px }}
-.badge-warn {{ color:var(--warn) }}
-.sources a {{ color:var(--fg); text-decoration:none; border-bottom:1px solid var(--line) }}
-.sources a:hover {{ border-color:var(--accent) }}
-.note {{ font-size:10px; color:var(--muted); margin-left:3px; vertical-align:super }}
-footer {{ margin-top:48px; color:var(--muted); font:13px -apple-system, system-ui, sans-serif }}
+html {{ scroll-behavior:smooth; scroll-padding-top:64px }}
+@media (prefers-reduced-motion: reduce) {{ html {{ scroll-behavior:auto }} }}
+body {{ margin:0; background:var(--fond); color:var(--encre);
+  font-family:"Bricolage Grotesque", system-ui, sans-serif; font-optical-sizing:auto;
+  font-size:16px; line-height:1.5; -webkit-text-size-adjust:100% }}
+a {{ color:inherit; text-decoration:none }}
+a:focus-visible, summary:focus-visible {{ outline:2px solid var(--D); outline-offset:3px; border-radius:2px }}
+main {{ max-width:640px; margin:0 auto; padding:0 16px calc(56px + env(safe-area-inset-bottom)) }}
+
+header {{ padding:48px 0 20px }}
+header h1 {{ font-size:clamp(40px, 11vw, 64px); line-height:.95; font-weight:800;
+  font-variation-settings:"wdth" 78; letter-spacing:-.02em; margin:0 }}
+header p {{ color:var(--doux); margin:12px 0 0 }}
+
+nav {{ position:sticky; top:0; z-index:1; background:var(--fond); margin:0 -16px;
+  padding:10px 16px; display:flex; gap:6px; overflow-x:auto; scrollbar-width:none;
+  border-bottom:1px solid var(--trait) }}
+nav::-webkit-scrollbar {{ display:none }}
+nav a {{ flex:none; padding:6px 14px; border-radius:99px; background:var(--survol);
+  font-weight:600; font-size:14px }}
+
+.intro-une {{ color:var(--doux); font-size:14px; margin:32px 0 -8px }}
+h2 {{ font-size:28px; font-weight:800; font-variation-settings:"wdth" 78;
+  letter-spacing:-.01em; margin:48px 0 4px }}
+
+.sujet {{ padding:18px 0; border-bottom:1px solid var(--trait) }}
+.sujet:last-child {{ border-bottom:0 }}
+.sujet h3 {{ font-size:19px; line-height:1.25; font-weight:650; margin:8px 0 0 }}
+.sujet h3 a:hover {{ text-decoration:underline; text-decoration-thickness:1px; text-underline-offset:3px }}
+.une {{ border-bottom:0; padding-bottom:8px }}
+.une h3 {{ font-size:clamp(26px, 7vw, 34px); line-height:1.1; font-weight:750;
+  font-variation-settings:"wdth" 85; letter-spacing:-.01em }}
+.une .p {{ width:12px; height:12px }}
+
+.resume {{ color:var(--doux); margin:6px 0 0; display:-webkit-box; -webkit-box-orient:vertical;
+  -webkit-line-clamp:2; overflow:hidden }}
+.une .resume {{ -webkit-line-clamp:3; font-size:17px }}
+
+.recoup {{ display:flex; align-items:center; gap:10px; font-size:13px; color:var(--doux) }}
+.pastilles {{ display:flex; gap:3px; flex:none }}
+.p {{ display:block; width:9px; height:9px; border-radius:50% }}
+.p.G {{ background:var(--G) }} .p.C {{ background:var(--C) }} .p.D {{ background:var(--D) }}
+.p.seul {{ border:1.5px solid var(--seul) }}
+
+details {{ margin-top:8px; font-size:14px }}
+summary {{ cursor:pointer; color:var(--doux); list-style:none; display:inline-block }}
+summary::-webkit-details-marker {{ display:none }}
+summary::before {{ content:"+"; display:inline-block; width:1em; font-weight:700 }}
+details[open] summary::before {{ content:"−" }}
+details ul {{ list-style:none; margin:8px 0 0; padding:0 }}
+details li a {{ display:block; padding:7px 10px; border-radius:8px; line-height:1.35 }}
+details li a:hover {{ background:var(--survol) }}
+details b {{ font-weight:700; margin-right:4px }}
+b.G {{ color:var(--G) }} b.D {{ color:var(--D) }}
+
+footer {{ margin-top:56px; padding-top:20px; border-top:1px solid var(--trait);
+  color:var(--doux); font-size:13px }}
+.legende {{ display:flex; flex-wrap:wrap; gap:14px; margin-bottom:10px }}
+.legende span {{ display:flex; align-items:center; gap:6px }}
 </style></head><body><main>
 <header>
-  <h1>{date}</h1>
-  <p>{total} sujets, c'est tout. Tirés de {nb_articles} articles publiés par {nb_sources} sources.</p>
+  <h1>{jour}</h1>
+  <p>{total} sujets ce matin, tirés de {nb_articles} articles et {nb_sources} sources.</p>
 </header>
+<nav aria-label="Rubriques">{onglets}</nav>
+{bloc_une}
 {sections}
 <footer>
-  <p>Score = sources indépendantes × fiabilité moyenne, avec un bonus si des médias de camps différents
-  confirment le même fait. Plusieurs reprises d'une même dépêche d'agence ne comptent que pour une source.
-  Les notes de fiabilité se modifient dans <code>sources.yaml</code>.</p>
+  <div class="legende">
+    <span><i class="p G"></i> gauche</span><span><i class="p C"></i> centre</span>
+    <span><i class="p D"></i> droite</span><span><i class="p seul"></i> une seule source</span>
+  </div>
+  <p>Une pastille par média qui couvre le sujet. Plusieurs reprises d'une même dépêche d'agence
+  ne comptent que pour une source. Le classement favorise les sujets confirmés par des sources
+  nombreuses, fiables et de camps différents.</p>
   {err}
+  <p>Mis à jour à {now:%H h %M}.</p>
 </footer>
 </main></body></html>"""
 
@@ -380,12 +444,12 @@ def main():
     vectoriser(articles)
     groupes = regrouper(articles, reglages["seuil_similarite"])
     evenements = [evaluer(g) for g in groupes]
-    par_rubrique = selectionner(evenements, reglages)
+    une, par_rubrique = selectionner(evenements, reglages)
 
     sortie = ROOT / "digests" / f"{datetime.now():%Y-%m-%d}.html"
     sortie.parent.mkdir(exist_ok=True)
     nb_sources = len(config["sources"]) - len(erreurs)
-    sortie.write_text(rendre(par_rubrique, len(articles), nb_sources, erreurs))
+    sortie.write_text(rendre(une, par_rubrique, len(articles), nb_sources, erreurs))
 
     recoupes = sum(1 for e in evenements if e["independantes"] >= 2)
     print(f"{len(articles)} articles · {len(groupes)} groupes · {recoupes} recoupés · "
