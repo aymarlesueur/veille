@@ -2,7 +2,10 @@ name: Digest quotidien
 
 on:
   schedule:
-    - cron: "0 11 * * *"   # 7 h à New York en heure d'été, 6 h en heure d'hiver
+    # GitHub retarde souvent les tâches planifiées de plusieurs heures, surtout à l'heure pile.
+    # On lance donc trois fois dans la nuit (2 h 17, 4 h 17, 6 h 17 à New York en heure d'été) :
+    # chaque passage rafraîchit la page, et au moins un arrive avant le réveil.
+    - cron: "17 6,8,10 * * *"
   workflow_dispatch:        # bouton « Run workflow » pour lancer à la main
 
 permissions:
